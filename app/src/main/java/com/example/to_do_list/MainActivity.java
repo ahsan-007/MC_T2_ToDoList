@@ -1,47 +1,34 @@
 package com.example.to_do_list;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
+import androidx.constraintlayout.widget.ConstraintLayout;
 
-import android.Manifest;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Paint;
-import android.icu.number.ScientificNotation;
 import android.os.Bundle;
-import android.os.Environment;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.io.Writer;
 import java.util.ArrayList;
-import java.util.Scanner;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener{
 
     LinearLayout todoList;
     Button addActivity;
-    EditText textInfo;
-    ArrayList<Activity> activityList;
-    private static final String FIELANAME = "todolist.txt";
+    Button shareReport;
+    public static ArrayList<Activity> activityList;
+    public static final String FIELANAME = "todolist.txt";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -50,25 +37,54 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         activityList = new ArrayList<>();
         todoList = (LinearLayout) findViewById(R.id.todoList);
         addActivity = (Button) findViewById(R.id.addActivity);
+        shareReport = findViewById(R.id.btnShare);
+        shareReport.setOnClickListener(this);
         addActivity.setOnClickListener(this);
-        textInfo = (EditText) findViewById(R.id.activityInfo);
         readData();
     }
+    public void goToAddActivity(View view) {
+        Intent intent = new Intent(getApplicationContext(), AddActivity.class);
+        startActivity(intent);
+    }
 
-    public void addActivity(String info,boolean status){
+    private String createReport(){
+        StringBuilder str = new StringBuilder();
+        for (Activity activity: activityList
+             ) {
+            str.append("Info: ").append(activity.getActivityInfo());
+            str.append(" Due-Date: ").append(activity.getDate());
+            str.append(" Status: ").append((activity.getStaus())?"Done":"Pending");
+            str.append("\n");
+        }
+        return str.toString();
+    }
+    private void setMargins (View view, int left, int top, int right, int bottom) {
+        if (view.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+            ViewGroup.MarginLayoutParams p = (ViewGroup.MarginLayoutParams) view.getLayoutParams();
+            p.setMargins(left, top, right, bottom);
+            view.requestLayout();
+        }
+    }
+
+    public void addActivity(String info,String dateString,boolean status){
         if(info.equals(""))
             return;
         final View todoActivity = getLayoutInflater().inflate(R.layout.todo_activity,null,false);
         TextView activity = (TextView) todoActivity.findViewById(R.id.activity_info);
         CheckBox checkBox = (CheckBox) todoActivity.findViewById(R.id.activity_status);
-        Activity new_activity = new Activity(info,status);
+        TextView date = (TextView) todoActivity.findViewById(R.id.date);
+        ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) todoActivity.getLayoutParams();
+        Activity new_activity = new Activity(info,dateString,status);
         activityList.add(new_activity);
+        int n = 20;
+        setMargins(todoActivity,n,n,n,n);
         activity.setText(new_activity.getActivityInfo());
         if(status){
             activity.setPaintFlags(activity.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
         }
         checkBox.setChecked(new_activity.getStaus());
-        textInfo.setText("");
+        date.setText(dateString);
+        //textInfo.setText("");
         todoList.addView(todoActivity);
         ImageView imageClose = (ImageView)todoActivity.findViewById(R.id.image_remove);
         imageClose.setOnClickListener(v -> removeView(todoActivity));
@@ -120,7 +136,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             String text;
             while((text = br.readLine())!=null){
                 String[] fields = text.split(",");
-                addActivity(fields[0],Boolean.parseBoolean(fields[1]));
+                addActivity(fields[0],fields[1],Boolean.parseBoolean(fields[2]));
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -139,8 +155,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         FileOutputStream fos = null;
         try {
             fos = openFileOutput(MainActivity.FIELANAME,MODE_PRIVATE);
-            for(int i=0;i<activityList.size();i++){
-                String data = activityList.get(i).getActivityInfo()+","+activityList.get(i).getStaus()+"\n";
+            for (Activity activity:activityList) {
+                String data = activity.getActivityInfo()+","+activity.getDate()+','+activity.getStaus()+'\n';
                 fos.write(data.getBytes());
             }
         } catch (IOException e) {
@@ -160,8 +176,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View v) {
         switch (v.getId()){
             case R.id.addActivity:
-                addActivity(textInfo.getText().toString(),false);
-                writeData();
+                Intent intent = new Intent(getApplicationContext(), AddActivity.class);
+                startActivity(intent);
+                break;
+            case R.id.btnShare:
+                Intent intent2 = new Intent(); intent2.setAction(Intent.ACTION_SEND);
+                intent2.setType("text/plain");
+                intent2.putExtra(Intent.EXTRA_TEXT, createReport() );
+                startActivity(Intent.createChooser(intent2, "Share via"));
                 break;
             default:
                 throw new IllegalStateException("Unexpected value: " + v.getId());
